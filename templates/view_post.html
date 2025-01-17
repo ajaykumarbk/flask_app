@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }}{% endblock %}
+{% block content %}
+<div class="post">
+    <h2>{{ post.title }}</h2>
+    <p>By {{ post.username }} on {{ post.created_at }}</p>
+    {% if post.image %}
+        <img src="{{ url_for('static', filename=post.image) }}" alt="{{ post.title }}">
+    {% endif %}
+    <p>{{ post.content }}</p>
+    <p><strong>{{ post.like_count }}</strong> Likes</p>
+    {% if session.get('user_id') %}
+        <form method="POST" action="{{ url_for('like_post', post_id=post.id) }}">
+            {% if user_liked %}
+                <button type="submit">Unlike</button>
+            {% else %}
+                <button type="submit">Like</button>
+            {% endif %}
+        </form>
+    {% endif %}
+</div>
+
+<h3>Comments</h3>
+{% for comment in comments %}
+    <div class="comment">
+        <p><strong>{{ comment.username }}</strong>: {{ comment.content }}</p>
+        <p><small>{{ comment.created_at }}</small></p>
+    </div>
+{% endfor %}
+{% if session.get('user_id') %}
+    <form method="POST" action="{{ url_for('add_comment', post_id=post.id) }}">
+        <textarea name="content" rows="3" placeholder="Add a comment..." required></textarea>
+        <button type="submit">Submit</button>
+    </form>
+{% else %}
+    <p><a href="{{ url_for('login') }}">Log in</a> to add a comment.</p>
+{% endif %}
+<a href="{{ url_for('index') }}">Back to Home</a>
+{% endblock %}
+

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+{% block content %}
+<h2>Profile</h2>
+<div class="profile">
+    <p><strong>Username:</strong> {{ user.username }}</p>
+    {% if user.bio %}
+        <p><strong>Bio:</strong> {{ user.bio }}</p>
+    {% endif %}
+    {% if user.profile_picture %}
+        <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile Picture">
+    {% endif %}
+</div>
+
+<h3>Your Posts</h3>
+{% for post in posts %}
+    <div class="post">
+        <h3>{{ post.title }}</h3>
+        <p>Created on {{ post.created_at }}</p>
+        <p><strong>{{ post.like_count }}</strong> Likes</p>
+        <a href="{{ url_for('view_post', post_id=post.id) }}">View Post</a>
+    </div>
+{% endfor %}
+<a href="{{ url_for('index') }}">Back to Home</a>
+{% endblock %}
+

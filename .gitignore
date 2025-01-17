@@ -1,0 +1,46 @@
+# Python bytecode files
+*.pyc
+*.pyo
+__pycache__/
+
+# Flask-specific configurations
+instance/
+*.db
+
+# Virtual environment
+venv/
+env/
+.venv/
+ENV/
+
+# IDE or editor directories
+.vscode/
+.idea/
+
+# MacOS system files
+.DS_Store
+
+# Windows system files
+Thumbs.db
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Flask config files (if any)
+config.py
+
+# Log files
+*.log
+
+# Coverage directory for testing
+.coverage
+coverage.xml
+*.cover
+
+# Environment variable files
+.env
+
+# Docker files (if used)
+*.dockerfile
+docker-compose.override.yml
+
