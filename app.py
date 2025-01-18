@@ -3,10 +3,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import mysql.connector
 import os
-from dotenv import load_dotenv
-
-# Load environment variables from the .env file
-load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -16,12 +12,12 @@ UPLOAD_FOLDER = os.path.join("static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# Database Configuration (from environment variables)
+# Database Configuration (Hardcoded directly into the file)
 db_config = {
-    "host": os.getenv("DB_HOST"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "database": os.getenv("DB_DATABASE"),
+    "host": "db",  # Replace with your DB host (e.g., "localhost" or EC2 IP)
+    "user": "root",       # Replace with your DB username
+    "password": "admin",  # Replace with your DB password
+    "database": "blog",  # Replace with your DB name
 }
 
 # Helper Functions
@@ -50,8 +46,6 @@ def index():
     cursor.close()
     connection.close()
     return render_template("index.html", posts=posts)
-
-# The rest of your routes remain unchanged...
 
 @app.route("/like/<int:post_id>", methods=["POST"])
 def like_post(post_id):
@@ -174,7 +168,7 @@ def view_post(post_id):
     cursor = connection.cursor(dictionary=True)
 
     # Fetch the post details
-    cursor.execute("""
+    cursor.execute(""" 
         SELECT posts.id, posts.title, posts.content, posts.image, users.username, posts.created_at,
                (SELECT COUNT(*) FROM likes WHERE likes.post_id = posts.id) AS like_count
         FROM posts
@@ -304,6 +298,7 @@ def delete_post(post_id):
     flash("Post deleted successfully.", "success")
     return redirect(url_for("index"))
 
+# Search users functionality
 @app.route("/search_users", methods=["GET", "POST"])
 def search_users():
     """Search for other users by username."""
@@ -326,6 +321,7 @@ def search_users():
 
     return render_template("search_users.html", users=users)
 
+# Friend request handling
 @app.route("/send_friend_request/<int:receiver_id>", methods=["POST"])
 def send_friend_request(receiver_id):
     """Send a friend request to another user."""
@@ -413,6 +409,7 @@ def handle_friend_request(request_id, action):
 
     return redirect(url_for("friend_requests"))
 
+# Profile picture update route
 @app.route("/update_profile", methods=["GET", "POST"])
 def update_profile():
     """Allow users to update their profile picture."""
@@ -444,6 +441,6 @@ def update_profile():
 
     return render_template("update_profile.html")
 
-
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)
+
