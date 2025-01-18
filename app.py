@@ -3,6 +3,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import mysql.connector
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from the .env file
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -12,12 +16,12 @@ UPLOAD_FOLDER = os.path.join("static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# Database Configuration
+# Database Configuration (from environment variables)
 db_config = {
-    "host": "localhost",
-    "user": "root",
-    "password": "admin",
-    "database": "village_blog",
+    "host": os.getenv("DB_HOST"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "database": os.getenv("DB_DATABASE"),
 }
 
 # Helper Functions
@@ -46,6 +50,8 @@ def index():
     cursor.close()
     connection.close()
     return render_template("index.html", posts=posts)
+
+# The rest of your routes remain unchanged...
 
 @app.route("/like/<int:post_id>", methods=["POST"])
 def like_post(post_id):
@@ -298,7 +304,146 @@ def delete_post(post_id):
     flash("Post deleted successfully.", "success")
     return redirect(url_for("index"))
 
+@app.route("/search_users", methods=["GET", "POST"])
+def search_users():
+    """Search for other users by username."""
+    if "user_id" not in session:
+        flash("Please log in to search for users.", "danger")
+        return redirect(url_for("login"))
+
+    users = []
+    if request.method == "POST":
+        search_query = request.form["search_query"]
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT id, username FROM users WHERE username LIKE %s AND id != %s",
+            (f"%{search_query}%", session["user_id"])
+        )
+        users = cursor.fetchall()
+        cursor.close()
+        connection.close()
+
+    return render_template("search_users.html", users=users)
+
+@app.route("/send_friend_request/<int:receiver_id>", methods=["POST"])
+def send_friend_request(receiver_id):
+    """Send a friend request to another user."""
+    if "user_id" not in session:
+        flash("Please log in to send friend requests.", "danger")
+        return redirect(url_for("login"))
+
+    sender_id = session["user_id"]
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    # Check if a friend request already exists
+    cursor.execute(
+        "SELECT id FROM friend_requests WHERE sender_id = %s AND receiver_id = %s AND status = 'pending'",
+        (sender_id, receiver_id)
+    )
+    existing_request = cursor.fetchone()
+
+    if existing_request:
+        flash("Friend request already sent.", "info")
+    else:
+        # Insert a new friend request
+        cursor.execute(
+            "INSERT INTO friend_requests (sender_id, receiver_id) VALUES (%s, %s)",
+            (sender_id, receiver_id)
+        )
+        connection.commit()
+        flash("Friend request sent!", "success")
+
+    cursor.close()
+    connection.close()
+    return redirect(url_for("search_users"))
+
+@app.route("/friend_requests")
+def friend_requests():
+    """View incoming friend requests."""
+    if "user_id" not in session:
+        flash("Please log in to view friend requests.", "danger")
+        return redirect(url_for("login"))
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute(
+        """
+        SELECT fr.id, u.username AS sender_username
+        FROM friend_requests fr
+        JOIN users u ON fr.sender_id = u.id
+        WHERE fr.receiver_id = %s AND fr.status = 'pending'
+        """,
+        (session["user_id"],)
+    )
+    requests = cursor.fetchall()
+    cursor.close()
+    connection.close()
+
+    return render_template("friend_requests.html", requests=requests)
+
+@app.route("/handle_friend_request/<int:request_id>/<string:action>", methods=["POST"])
+def handle_friend_request(request_id, action):
+    """Accept or reject a friend request."""
+    if "user_id" not in session:
+        flash("Please log in to manage friend requests.", "danger")
+        return redirect(url_for("login"))
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    if action == "accept":
+        cursor.execute(
+            "UPDATE friend_requests SET status = 'accepted' WHERE id = %s AND receiver_id = %s",
+            (request_id, session["user_id"])
+        )
+        flash("Friend request accepted!", "success")
+    elif action == "reject":
+        cursor.execute(
+            "UPDATE friend_requests SET status = 'rejected' WHERE id = %s AND receiver_id = %s",
+            (request_id, session["user_id"])
+        )
+        flash("Friend request rejected.", "info")
+
+    connection.commit()
+    cursor.close()
+    connection.close()
+
+    return redirect(url_for("friend_requests"))
+
+@app.route("/update_profile", methods=["GET", "POST"])
+def update_profile():
+    """Allow users to update their profile picture."""
+    if "user_id" not in session:
+        flash("Please log in to update your profile.", "danger")
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        profile_picture = request.files.get("profile_picture")
+
+        if profile_picture and allowed_file(profile_picture.filename):
+            filename = secure_filename(profile_picture.filename)
+            upload_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'profile_pics')
+            os.makedirs(upload_folder, exist_ok=True)
+            file_path = os.path.join(upload_folder, filename)
+            profile_picture.save(file_path)
+
+            # Save the file path to the database
+            connection = get_db_connection()
+            cursor = connection.cursor()
+            cursor.execute("UPDATE users SET profile_picture = %s WHERE id = %s",
+                           (f'uploads/profile_pics/{filename}', session['user_id']))
+            connection.commit()
+            cursor.close()
+            connection.close()
+
+            flash("Profile picture updated successfully!", "success")
+            return redirect(url_for("profile"))
+
+    return render_template("update_profile.html")
+
 
 if __name__ == "__main__":
     app.run(debug=True)
-

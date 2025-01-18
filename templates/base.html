@@ -15,6 +15,8 @@
         {% if session.get('user_id') %}
             <a href="{{ url_for('create_post') }}">Create Post</a>
             <a href="{{ url_for('liked_posts') }}">Liked Posts</a>
+            <a href="{{ url_for('search_users') }}">Search Users</a>
+            <a href="{{ url_for('friend_requests') }}">Friend Requests</a>
             <a href="{{ url_for('profile') }}">Profile</a>
             <a href="{{ url_for('logout') }}">Logout</a>
         {% else %}
@@ -35,7 +37,7 @@
         {% block content %}{% endblock %}
     </div>
     <footer>
-        <p>&copy; "PostBook - Share your stories, connect with the world, and inspire others. © 2025 PostBook. All rights reserved."</p>
+        <p>PostBook - Share your stories, connect with the world, and inspire others. © 2025 PostBook. All rights reserved.</p>
     </footer>
 </body>
 </html>
