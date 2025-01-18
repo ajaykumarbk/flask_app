@@ -13,14 +13,24 @@
 </div>
 
 <h3>Your Posts</h3>
-{% for post in posts %}
-    <div class="post">
-        <h3>{{ post.title }}</h3>
-        <p>Created on {{ post.created_at }}</p>
-        <p><strong>{{ post.like_count }}</strong> Likes</p>
-        <a href="{{ url_for('view_post', post_id=post.id) }}">View Post</a>
-    </div>
-{% endfor %}
+{% if posts %}
+    {% for post in posts %}
+        <div class="post">
+            <h3>{{ post.title }}</h3>
+            <p>Created on {{ post.created_at }}</p>
+            <p><strong>{{ post.like_count }}</strong> Likes</p>
+            <a href="{{ url_for('view_post', post_id=post.id) }}">View Post</a>
+
+            <!-- Delete Post Button -->
+            <form method="POST" action="{{ url_for('delete_post', post_id=post.id) }}" style="display: inline;">
+                <button type="submit" class="delete-btn">Delete</button>
+            </form>
+        </div>
+    {% endfor %}
+{% else %}
+    <p>You haven't created any posts yet.</p>
+{% endif %}
+
 <a href="{{ url_for('index') }}">Back to Home</a>
 {% endblock %}
 

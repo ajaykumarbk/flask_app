@@ -124,3 +124,16 @@ ul li.info {
     border-radius: 5px;
 }
 
+.delete-btn {
+    background-color: #dc3545;
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.delete-btn:hover {
+    background-color: #c82333;
+}
+

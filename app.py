@@ -267,6 +267,38 @@ def liked_posts():
 
     return render_template("liked_posts.html", posts=liked_posts)
 
+@app.route("/delete_post/<int:post_id>", methods=["POST"])
+def delete_post(post_id):
+    """Allow users to delete their posts."""
+    if "user_id" not in session:
+        flash("You need to log in to delete posts.", "danger")
+        return redirect(url_for("login"))
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    # Check if the post belongs to the logged-in user
+    cursor.execute("SELECT user_id FROM posts WHERE id = %s", (post_id,))
+    post = cursor.fetchone()
+    if not post or post[0] != session["user_id"]:
+        cursor.close()
+        connection.close()
+        flash("You do not have permission to delete this post.", "danger")
+        return redirect(url_for("index"))
+
+    # Delete the post and associated comments and likes
+    cursor.execute("DELETE FROM likes WHERE post_id = %s", (post_id,))
+    cursor.execute("DELETE FROM comments WHERE post_id = %s", (post_id,))
+    cursor.execute("DELETE FROM posts WHERE id = %s", (post_id,))
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+
+    flash("Post deleted successfully.", "success")
+    return redirect(url_for("index"))
+
+
 if __name__ == "__main__":
     app.run(debug=True)
 
