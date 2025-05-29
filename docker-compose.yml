@@ -15,18 +15,3 @@ services:
     depends_on:
       - db
 
-  # MySQL database service
-  db:
-    image: mysql:8.0
-    environment:
-      MYSQL_ROOT_PASSWORD: admin
-      MYSQL_DATABASE: village_blog
-    volumes:
-      - mysql_data:/var/lib/mysql
-    ports:
-      - "3306:3306"
-
-# Named volumes to persist MySQL data
-volumes:
-  mysql_data:
-
