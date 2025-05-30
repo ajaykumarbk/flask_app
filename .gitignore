@@ -43,5 +43,6 @@ coverage.xml
 
 # Docker files (if used)
 *.dockerfile
+ mysql-secret.yaml
 docker-compose.override.yml
 
