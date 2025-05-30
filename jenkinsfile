@@ -1,0 +1,129 @@
+pipeline {
+    agent any
+    
+    // Environment variables that shouldn't be in version control
+    environment {
+        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials') // Jenkins credential ID
+        DOCKER_HUB_REPO = 'your-dockerhub-username/your-repo-name'
+        VERSION = readMavenPom().getVersion() // Or any other version source
+        BUILD_NUMBER = "${env.BUILD_ID}"
+        DOCKER_IMAGE = "${DOCKER_HUB_REPO}:${VERSION}-${BUILD_NUMBER}"
+        DOCKER_IMAGE_LATEST = "${DOCKER_HUB_REPO}:latest"
+    }
+    
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '30')) // Keep last 30 builds
+        timeout(time: 30, unit: 'MINUTES') // Timeout after 30 minutes
+        disableConcurrentBuilds() // Prevent parallel execution
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm // Checks out the source code from SCM
+                script {
+                    // Validate that we're on the correct branch (if needed)
+                    if (env.BRANCH_NAME != 'main' && env.BRANCH_NAME != 'master') {
+                        currentBuild.result = 'UNSTABLE'
+                        error("Builds only allowed from main/master branch")
+                    }
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    // Validate Dockerfile exists
+                    if (!fileExists('Dockerfile')) {
+                        error("Dockerfile not found in project root")
+                    }
+                    
+                    // Build the Docker image
+                    docker.build(DOCKER_IMAGE)
+                }
+            }
+        }
+        
+        stage('Run Tests') {
+            steps {
+                script {
+                    // Run containerized tests (example - customize as needed)
+                    def testImage = docker.build("${DOCKER_IMAGE}-test", "--target test-stage .")
+                    testImage.inside {
+                        sh 'npm test' // or whatever your test command is
+                    }
+                }
+            }
+        }
+        
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    // Login to Docker Hub
+                    withCredentials([usernamePassword(
+                        credentialsId: 'docker-hub-credentials',
+                        usernameVariable: 'DOCKER_HUB_USER',
+                        passwordVariable: 'DOCKER_HUB_PASSWORD'
+                    )]) {
+                        sh "echo ${DOCKER_HUB_PASSWORD} | docker login -u ${DOCKER_HUB_USER} --password-stdin"
+                    }
+                    
+                    // Tag and push the versioned image
+                    docker.image(DOCKER_IMAGE).push()
+                    
+                    // Optionally tag and push as 'latest'
+                    if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') {
+                        sh "docker tag ${DOCKER_IMAGE} ${DOCKER_IMAGE_LATEST}"
+                        docker.image(DOCKER_IMAGE_LATEST).push()
+                    }
+                    
+                    // Logout from Docker Hub
+                    sh 'docker logout'
+                }
+            }
+        }
+        
+        stage('Cleanup') {
+            steps {
+                script {
+                    // Remove built images to save disk space
+                    sh "docker rmi ${DOCKER_IMAGE} || true"
+                    if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') {
+                        sh "docker rmi ${DOCKER_IMAGE_LATEST} || true"
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            script {
+                // Clean up workspace
+                cleanWs()
+                
+                // Send notifications if build failed
+                if (currentBuild.result == 'FAILURE') {
+                    emailext (
+                        subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                        body: """<p>FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+                                <p>Check console output at <a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>""",
+                        to: 'dev-team@yourcompany.com',
+                        recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+                    )
+                }
+            }
+        }
+        success {
+            script {
+                // Success notification
+                if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') {
+                    slackSend(color: 'good', message: "Docker image successfully pushed: ${DOCKER_IMAGE} and ${DOCKER_IMAGE_LATEST}")
+                } else {
+                    slackSend(color: 'good', message: "Docker image successfully pushed: ${DOCKER_IMAGE}")
+                }
+            }
+        }
+    }
+}
